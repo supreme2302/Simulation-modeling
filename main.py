@@ -98,6 +98,11 @@ class Worker:
         self.time = time
         self.state = "work"
 
+    def set_to_rest(self, timer):
+        self.timer.minute = timer.minute
+        self.timer.hour = timer.hour
+        self.timer.day = timer.day
+
 class timerBP:
     def __init__(self, type):
         self.minute = random.randint(0,59)
@@ -110,186 +115,242 @@ rate30=[5,6,5,4,3,3,2,2,1]
 rate40=[2,3,4,3,2,1,1,1,1]
 
 
+def stat(typeA, typeB):
+    # Очереди задач
+    normQ = []
+    premQ = []
+    # Внутренняя механика
+    taskInc = []
+    i=0
+    # Рабочие
+    workersA = []
+    workersB = []
+    # Вероятность попадания в нормальную очередь для заказов разных типов
+    typesPossibQueue = [35,30,25,15]
 
-# Очереди задач
-normQ = []
-premQ = []
-# Внутренняя механика
-taskInc = []
-i=0
-# Рабочие
-typeA = 5
-typeB = 3
-workersA = []
-workersB = []
-# Вероятность попадания в нормальную очередь для заказов разных типов
-typesPossibQueue = [35,30,25,15]
+    # Добавление рабочих
+    while i<typeA:
+        workersA.append(Worker('A'))
+        i+=1
+    i=0
+    while i<typeB:
+        workersB.append(Worker('B'))
+        i+=1
+    i=0
+    # _________________________________________
+    doneA = 0
+    doneB = 0
+    allab = 0
+    allbc = 0
+    ndoneab = 0
+    ndonebc = 0
+    donen =0
+    donep =0
+    notdonen =0
+    notdonep =0
+    timer = modelTime()
+    while timer.day < 25:
+            while timer.hour < 9:
+                # Распределение появления заказов за следующий час
+                while i<rate10[timer.hour]:
+                    taskInc.append(timerBP(1))
+                    i+=1
+                i = 0
+                while i<rate20[timer.hour]:
+                    taskInc.append(timerBP(2))
+                    i += 1
+                i = 0
+                while i<rate30[timer.hour]:
+                    taskInc.append(timerBP(3))
+                    i += 1
+                i = 0
+                while i<rate40[timer.hour]:
+                    taskInc.append(timerBP(4))
+                    i += 1
+                i = 0
+                taskInc = sorted(taskInc,key = lambda task: task.minute)
+                #--------------------------------------------------------------------------------------------------------
 
-# Добавление рабочих
-while i<typeA:
-    workersA.append(Worker('A'))
-    i+=1
-i=0
-while i<typeB:
-    workersB.append(Worker('B'))
-    i+=1
-i=0
-# _________________________________________
+                while timer.minute < 60 :
+                    # Появление заказа в момент времени и запись его в очередь
+                    checktime = sumHour(timer,1)
+                    while   len(taskInc)!=0 and timer.minute == taskInc[0].minute:
+                        possib = random.randint(0,100)
+                        if(possib<typesPossibQueue[taskInc[0].type-1]):
+                                normQ.append(Entity(taskInc[0].type,"n",timer))
 
-donen =0
-donep =0
-notdonen =0
-notdonep =0
-timer = modelTime()
-while timer.day < 25:
-        while timer.hour < 9:
-            # Распределение появления заказов за следующий час
-            while i<rate10[timer.hour]:
-                taskInc.append(timerBP(1))
-                i+=1
-            i = 0
-            while i<rate20[timer.hour]:
-                taskInc.append(timerBP(2))
-                i += 1
-            i = 0
-            while i<rate30[timer.hour]:
-                taskInc.append(timerBP(3))
-                i += 1
-            i = 0
-            while i<rate40[timer.hour]:
-                taskInc.append(timerBP(4))
-                i += 1
-            i = 0
-            taskInc = sorted(taskInc,key = lambda task: task.minute)
-            #--------------------------------------------------------------------------------------------------------
-
-            while timer.minute < 60 :
-                # Появление заказа в момент времени и запись его в очередь
-                checktime = sumHour(timer,1)
-                while   len(taskInc)!=0 and timer.minute == taskInc[0].minute:
-                    possib = random.randint(0,100)
-                    if(possib<typesPossibQueue[taskInc[0].type-1]):
-                            normQ.append(Entity(taskInc[0].type,"n",timer))
-                    else:
-                            premQ.append(Entity(taskInc[0].type,"p", timer))
-                    taskInc.pop(0)
-                # ----------------------------------------------------------
-
-                # Распределение заказов между рабочими(можно оптимизировать, добавив время занятости)
-                if(timer.hour<8 and timer.minute<30):
-                    # Заказы для работников типа А
-                    while i < len(workersA):
-                        if(workersA[i].state == "free"):
-                            j=0
-                            while len(premQ)!=0 and j<len(premQ) and checktime.more( sumHour(premQ[j].timer,3) ) :
-                                if(premQ[j].type == 1 or premQ[j].type == 2):
-                                    workersA[i].set_to_work(timer, premQ[j].time)
-                                    donep += 1
-                                    premQ.pop(j)
-                                    break
-                                else:
-                                    j+=1
-
-                            j = 0
-
-                            while len(normQ)!=0 and j<len(normQ) and checktime.more(sumHour(normQ[j].timer,3)) and workersA[i].state == "free" :
-                                if(normQ[j].type == 1 or normQ[j].type == 2):
-                                    workersA[i].set_to_work(timer, normQ[j].time)
-                                    donen += 1
-                                    normQ.pop(j)
-                                    break
-                                else:
-                                    j+=1
-                            j=0
-
-                            while len(premQ)!=0 and j<len(premQ) and workersA[i].state == "free" :
-                                if(premQ[j].type == 1 or premQ[j].type == 2):
-                                    workersA[i].set_to_work(timer, premQ[j].time)
-                                    donep += 1
-                                    premQ.pop(j)
-                                    break
-                                else:
-                                    j+=1
-                            j=0
-
-                            while len(normQ)!=0 and j<len(normQ) and workersA[i].state == "free" :
-                                if(normQ[j].type == 1 or normQ[j].type == 2):
-                                    workersA[i].set_to_work(timer, normQ[j].time)
-                                    donen += 1
-                                    normQ.pop(j)
-                                    break
-                                else:
-                                    j+=1
-                            j=0
                         else:
-                            if(workersA[i].state == "work"):
-                                if(timer.more(sumMin(workersA[i].timer,workersA[i].time))):
-                                    workersA[i].state = "free"
+                                premQ.append(Entity(taskInc[0].type,"p", timer))
+                        if (taskInc[0].type == 1 or taskInc[0].type == 2):
+                            allab+=1
+                        else:
+                            allbc+=1
+
+                        taskInc.pop(0)
+                    # ----------------------------------------------------------
+
+                    # Распределение заказов между рабочими(можно оптимизировать, добавив время занятости)
+                    if(timer.hour<8 and timer.minute<30):
+                        # Заказы для работников типа А
+                        while i < len(workersA):
+                            if(workersA[i].state == "free"):
+                                j=0
+                                doneA += 1
+                                while len(premQ)!=0 and j<len(premQ) and checktime.more( sumHour(premQ[j].timer,3) ) :
+                                    if(premQ[j].type == 1 or premQ[j].type == 2):
+                                        workersA[i].set_to_work(timer, premQ[j].time)
+                                        donep += 1
+                                        premQ.pop(j)
+                                        break
+                                    else:
+                                        j+=1
+
+                                j = 0
+
+                                while len(normQ)!=0 and j<len(normQ) and checktime.more(sumHour(normQ[j].timer,3)) and workersA[i].state == "free" :
+                                    if(normQ[j].type == 1 or normQ[j].type == 2):
+                                        workersA[i].set_to_work(timer, normQ[j].time)
+                                        donen += 1
+                                        normQ.pop(j)
+                                        break
+                                    else:
+                                        j+=1
+                                j=0
+
+                                while len(premQ)!=0 and j<len(premQ) and workersA[i].state == "free" :
+                                    if(premQ[j].type == 1 or premQ[j].type == 2):
+                                        workersA[i].set_to_work(timer, premQ[j].time)
+                                        donep += 1
+                                        premQ.pop(j)
+                                        break
+                                    else:
+                                        j+=1
+                                j=0
+
+                                while len(normQ)!=0 and j<len(normQ) and workersA[i].state == "free" :
+                                    if(normQ[j].type == 1 or normQ[j].type == 2):
+                                        workersA[i].set_to_work(timer, normQ[j].time)
+                                        donen += 1
+                                        normQ.pop(j)
+                                        break
+                                    else:
+                                        j+=1
+                                j=0
                             else:
-                                if(timer.more(sumHour(workersA[i].timer, 1))):
-                                    workersA[i].state = "free"
+                                if(workersA[i].state == "work"):
+                                    if(timer.more(sumMin(workersA[i].timer,workersA[i].time))):
+                                        if(timer.hour>=3 and timer.hour<5):
+                                            workersA[i].set_to_rest(timer)
+                                            workersA[i].state = "break"
+                                        else:
+                                            workersA[i].state = "free"
+                                else:
+                                    if(timer.more(sumHour(workersA[i].timer, 1)) or (timer.hour == 5 and timer.minute == 0)):
+                                        workersA[i].state = "free"
+                            i+=1
+                        i=0
+
+                        #         _______________________________________________________________________________________________
+                        # Заказы для работников типа B
+                        while i < len(workersB):
+                            if (workersB[i].state == "free"):
+                                doneB += 1
+                                if len(premQ) != 0 and checktime.more(sumHour(premQ[0].timer, 3)):
+                                    workersB[i].set_to_work(timer, premQ[0].time)
+                                    donep += 1
+                                    premQ.pop(0)
+
+
+                                if len(normQ) != 0 and checktime.more(sumHour(normQ[0].timer, 3)):
+                                    workersB[i].set_to_work(timer, normQ[0].time)
+                                    donen += 1
+                                    normQ.pop(0)
+
+
+                                if len(premQ) != 0:
+                                    workersB[i].set_to_work(timer, premQ[0].time)
+                                    donep += 1
+                                    premQ.pop(0)
+
+
+                                if len(normQ) != 0 :
+                                    workersB[i].set_to_work(timer, normQ[0].time)
+                                    donen += 1
+                                    normQ.pop(0)
+
+                            else:
+                                if (workersB[i].state == "work"):
+                                    if (timer.more(sumMin(workersB[i].timer, workersB[i].time))):
+                                        if(timer.hour>=3 and timer.hour<5):
+                                            workersB[i].set_to_rest(timer)
+                                            workersB[i].state = "break"
+                                        else:
+                                            workersB[i].state = "free"
+                                else:
+                                    if (timer.more(sumHour(workersB[i].timer, 1)) or (timer.hour == 5 and timer.minute == 0)):
+                                        workersB[i].state = "free"
+                            i+=1
+                        i=0
+                    #             _______________________________________________________________________________________________________
+                    #
+                    # Проверка и очистка очередей задач
+                    while  i<len(normQ) and timer.more(sumHour(normQ[i].timer,9)):
+                        normQ.pop(i)
+                        if(normQ[i].type == 1 or normQ[i].type == 2):
+                            ndoneab+=1
+                        else:
+                            ndonebc+=1
+                        notdonen+=1
+                        i+=1
+                    i=0
+                    while  i<len(premQ) and timer.more(sumHour(premQ[i].timer,9)):
+                        premQ.pop(i)
+                        if(premQ[i].type == 1 or premQ[i].type == 2):
+                            ndoneab+=1
+                        else:
+                            ndonebc+=1
+                        notdonep += 1
                         i+=1
                     i=0
 
-                    #         _______________________________________________________________________________________________
-                    # Заказы для работников типа B
-                    while i < len(workersB):
-                        if (workersB[i].state == "free"):
-                            if len(premQ) != 0 and checktime.more(sumHour(premQ[0].timer, 3)):
-                                workersB[i].set_to_work(timer, premQ[0].time)
-                                donep += 1
-                                premQ.pop(0)
+
+                    timer.minute+=1
+                timer.minute =0
+                timer.hour+=1
+            timer.hour = 0
+            timer.day += 1
+
+    print(donen)
+    print(donep)
+    print(notdonen)
+    print(notdonep)
+    return [donen, donep,notdonen,notdonep,ndoneab,ndonebc,doneA,doneB,allab,allbc]
+
+def optimize():
+    typeA = 1
+    typeB = 1
+    stats = stat(typeA, typeB)
+    percDn= stats[0]/(stats[0]+stats[2])*100
+    percDp = stats[1] / (stats[1] + stats[2]) * 100
+    while(stats[4]>(stats[8])*0.15):
+        typeA+=1
+        stats = stat(typeA,typeB)
+        print('-----------------------------------')
+        print(stats)
+        print('-----------------------------------')
+        print(typeA)
+        print(100 - stats[4]/stats[8]*100)
+    print('_______________________________________________2______________________________________________')
+    while(stats[5]/stats[9]*100>15):
+        typeB+=1
+        stats = stat(typeA, typeB)
+        print('-----------------------------------')
+        print(stats)
+        print('-----------------------------------')
+        print(typeB)
+        print(100 - stats[5] / stats[9] * 100)
+    print(stats)
 
 
-                            if len(normQ) != 0 and checktime.more(sumHour(normQ[0].timer, 3)):
-                                workersB[i].set_to_work(timer, normQ[0].time)
-                                donen += 1
-                                normQ.pop(0)
+optimize()
 
-
-                            if len(premQ) != 0:
-                                workersB[i].set_to_work(timer, premQ[0].time)
-                                donep += 1
-                                premQ.pop(0)
-
-
-                            if len(normQ) != 0 :
-                                workersB[i].set_to_work(timer, normQ[0].time)
-                                donen += 1
-                                normQ.pop(0)
-
-                        else:
-                            if (workersB[i].state == "work"):
-                                if (timer.more(sumMin(workersB[i].timer, workersB[i].time))):
-
-                                    workersB[i].state = "free"
-                            else:
-                                if (timer.more(sumHour(workersB[i].timer, 1))):
-                                    workersB[i].state = "free"
-                        i+=1
-                    i=0
-                #             _______________________________________________________________________________________________________
-                #
-                # Проверка и очистка очередей задач
-                while  i<len(normQ) and timer.more(sumHour(normQ[i].timer,9)):
-                    normQ.pop(i)
-                    notdonen+=1
-                    i+=1
-                i=0
-                while  i<len(premQ) and timer.more(sumHour(premQ[i].timer,9)):
-                    premQ.pop(i)
-                    notdonep += 1
-                    i+=1
-                i=0
-
-
-                timer.minute+=1
-            timer.minute =0
-            timer.hour+=1
-        timer.hour = 0
-        timer.day += 1
-
-print(donen)
-print(donep)
-print(notdonen)
-print(notdonep)
